@@ -54,12 +54,15 @@ jobs:
 
     - name: Build Docker image
       run: |
+      env:
+        COMMIT_SHA: ${{ github.event.inputs.sha }}
         docker build -t game-collection-manager:${{ github.event.inputs.sha }} .
 
     - name: Deploy to staging (containerized)
       run: |
         echo "Starting staging container..."
-        docker run -d --name game-collection-manager-staging -p 8000:8000 game-collection-manager:${{ github.event.inputs.sha }} || { echo "Failed to start container"; exit 1; }
+        echo "Starting staging container..."
+        docker run -d --name game-collection-manager-staging -p 8000:8000 -e COMMIT_SHA=${{ github.event.inputs.sha }} game-collection-manager:${{ github.event.inputs.sha }} || { echo "Failed to start container"; exit 1; }
         echo "Container started successfully"
 
     - name: Wait for application to be ready
