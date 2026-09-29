@@ -13,62 +13,62 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
-
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.inputs.target_sha }}
+        fetch-depth: 0
+    - name: Verify checkout SHA
+      run: |
+        git rev-parse HEAD
+        git rev-parse --verify ${{ github.event.inputs.target_sha }} > /dev/null 2>&1 || { echo "ERROR: Failed to verify SHA ${{ github.event.inputs.target_sha }}"; exit 1; }
+        if [ "$(git rev-parse HEAD)" != "${{ github.event.inputs.target_sha }}" ]; then
+          echo "ERROR: HEAD $(git rev-parse HEAD) does not match requested SHA ${{ github.event.inputs.target_sha }}"
+          exit 1
+        fi
+        echo "Checked out SHA: $(git rev-parse HEAD)"
     - name: Validate target SHA
       run: |
         git rev-parse --verify ${{ github.event.inputs.target_sha }} > /dev/null 2>&1 || { echo "Invalid SHA: ${{ github.event.inputs.target_sha }}"; exit 1; }
         echo "Valid target SHA: ${{ github.event.inputs.target_sha }}"
-
     - name: Stop existing staging container
       run: |
         docker rm -f game-collection-manager-staging 2>/dev/null || true
         echo "Cleaned up existing staging container"
-
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: '3.9'
-
     - name: Install backend dependencies
       run: |
         cd backend
         pip install -r requirements.txt
-
     - name: Run backend tests
       run: |
         cd backend
         pytest
-
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v7
       with:
         node-version: '18'
-
     - name: Install frontend dependencies
       run: |
         cd frontend
         npm install
-
     - name: Run frontend build
       run: |
         cd frontend
         npm run build
-
     - name: Build Docker image for target SHA
       env:
         COMMIT_SHA: ${{ github.event.inputs.target_sha }}
       run: |
-        git checkout ${{ github.event.inputs.target_sha }}
         docker build -t game-collection-manager-rollback:${{ github.event.inputs.target_sha }} .
         echo "Built image for target SHA: ${{ github.event.inputs.target_sha }}"
-
     - name: Deploy rollback to staging
       run: |
         echo "Starting staging container with target SHA..."
         docker run -d --name game-collection-manager-staging -p 8000:8000 -e COMMIT_SHA=${{ github.event.inputs.target_sha }} game-collection-manager-rollback:${{ github.event.inputs.target_sha }} || { echo "Failed to start container"; exit 1; }
         echo "Container started successfully"
-
     - name: Wait for application to be ready
       run: |
         sleep 10
@@ -82,13 +82,11 @@ jobs:
         done
         echo "Application failed to become healthy"
         exit 1
-
     - name: Verify version endpoint matches target
       run: |
         VERSION_RESPONSE=$(curl -s http://localhost:8000/version)
         echo "Version response: $VERSION_RESPONSE"
         echo "$VERSION_RESPONSE" | grep '"commit":"${{ github.event.inputs.target_sha }}"'
-
     - name: Report rollback info
       run: |
         echo "STAGING ROLLBACK COMPLETE"

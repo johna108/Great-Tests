@@ -13,10 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         ref: ${{ github.event.inputs.sha }}
-
+        fetch-depth: 0
+    - name: Verify checkout SHA
+      run: |
+        git rev-parse HEAD
+        git rev-parse --verify ${{ github.event.inputs.sha }} > /dev/null 2>&1 || { echo "ERROR: Failed to verify SHA ${{ github.event.inputs.sha }}"; exit 1; }
+        if [ "$(git rev-parse HEAD)" != "${{ github.event.inputs.sha }}" ]; then
+          echo "ERROR: HEAD $(git rev-parse HEAD) does not match requested SHA ${{ github.event.inputs.sha }}"
+          exit 1
+        fi
+        echo "Checked out SHA: $(git rev-parse HEAD)"
     - name: Validate SHA
       run: |
         git rev-parse --verify ${{ github.event.inputs.sha }} > /dev/null 2>&1 || { echo "Invalid SHA: ${{ github.event.inputs.sha }}"; exit 1; }
