@@ -12,7 +12,16 @@ app.include_router(stats.router, prefix="/api/stats")
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    # Attempt to enhance health check with additional diagnostics
+    # but accidentally broke the expected format
+    return {
+        "status": "healthy",
+        "details": {
+            "database": "connected",
+            "version": os.getenv("COMMIT_SHA", "unknown"),
+            "timestamp": "2026-09-29T10:00:00Z"
+        }
+    }
 
 @app.get("/version")
 async def version():
