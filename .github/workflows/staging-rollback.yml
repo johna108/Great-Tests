@@ -57,10 +57,10 @@ jobs:
         npm run build
 
     - name: Build Docker image for target SHA
+      env:
+        COMMIT_SHA: ${{ github.event.inputs.target_sha }}
       run: |
         git checkout ${{ github.event.inputs.target_sha }}
-        env:
-          COMMIT_SHA: ${{ github.event.inputs.target_sha }}
         docker build -t game-collection-manager-rollback:${{ github.event.inputs.target_sha }} .
         echo "Built image for target SHA: ${{ github.event.inputs.target_sha }}"
 
