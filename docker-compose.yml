@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    # Optional: volume for live reload during development
+    # volumes:
+    #   - ./backend:/app/backend
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://backend:8000/api
+    # Optional: volume for live reload
+    # volumes:
+    #   - ./frontend:/app
