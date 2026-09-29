@@ -22,8 +22,7 @@ jobs:
 
     - name: Stop existing staging container
       run: |
-        docker stop game-collection-manager-staging || true
-        docker rm game-collection-manager-staging || true
+        docker rm -f game-collection-manager-staging 2>/dev/null || true
         echo "Cleaned up existing staging container"
 
     - name: Set up Python
