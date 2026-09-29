@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from .database import engine, Base
 from .routes import games, stats
@@ -11,4 +12,13 @@ app.include_router(stats.router, prefix="/api/stats")
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
+
+@app.get("/version")
+async def version():
+    # Return commit SHA from environment or fallback
+    commit_sha = os.getenv("COMMIT_SHA", "unknown")
+    return {
+        "commit": commit_sha,
+        "environment": os.getenv("ENVIRONMENT", "development")
+    }

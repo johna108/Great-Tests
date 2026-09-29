@@ -1,0 +1,91 @@
+name: Staging Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit SHA to deploy'
+        required: true
+        default: ''
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.sha }}
+
+    - name: Validate SHA
+      run: |
+        git rev-parse --verify ${{ github.event.inputs.sha }} > /dev/null 2>&1 || { echo "Invalid SHA: ${{ github.event.inputs.sha }}"; exit 1; }
+        echo "Valid SHA: ${{ github.event.inputs.sha }}"
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+
+    - name: Run backend tests
+      run: |
+        cd backend
+        pytest
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Run frontend build
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Build Docker image
+      run: |
+        docker build -t game-collection-manager:${{ github.event.inputs.sha }} .
+
+    - name: Deploy to staging (containerized)
+      run: |
+        echo "Starting staging container..."
+        docker run -d --name game-collection-manager-staging -p 8000:8000 game-collection-manager:${{ github.event.inputs.sha }} || { echo "Failed to start container"; exit 1; }
+        echo "Container started successfully"
+
+    - name: Wait for application to be ready
+      run: |
+        sleep 10
+        for i in {1..30}; do
+          if curl -s http://localhost:8000/health | grep '"status":"healthy"'; then
+            echo "Application is healthy"
+            exit 0
+          fi
+          echo "Waiting for application to be ready... ($i/30)"
+          sleep 2
+        done
+        echo "Application failed to become healthy"
+        exit 1
+
+    - name: Verify version endpoint
+      run: |
+        VERSION_RESPONSE=$(curl -s http://localhost:8000/version)
+        echo "Version response: $VERSION_RESPONSE"
+        echo "$VERSION_RESPONSE" | grep '"commit":"${{ github.event.inputs.sha }}"'
+
+    - name: Report deployment info
+      run: |
+        echo "STAGING DEPLOYMENT COMPLETE"
+        echo "Target SHA: ${{ github.event.inputs.sha }}"
+        echo "Status: SUCCESS"
+        echo "Health: PASS"
+        echo "Deployed version: ${{ github.event.inputs.sha }}"
